@@ -13,9 +13,8 @@ def decompress(ab):
   print(". Decompressing %d -> %d, be patient..." % (len(ab), cbUnp))
   br = bitsReader(ab[4:])
   r = bytearray()
-  while (br.bits):
-    flag = br.get(1)
-    if flag:
+  while br.bits:
+    if flag := br.get(1):
       ncp = br.get(4)
       if ncp < 3: ncp += 16
       offs = br.get(14)
@@ -34,7 +33,7 @@ class Elf64_Shdr(object):
       self.fmt.unpack_from(ab, shoff + iSec*self.fmt.size)
 
 def process(fn):
-  print("Processing %s" % fn)
+  print(f"Processing {fn}")
   with open(fn, "rb") as fi: ab = fi.read()
   oELF = ab.find(b'\x7FELF\2\1\1\0')
   if oELF < 0:
@@ -45,7 +44,7 @@ def process(fn):
     struct.unpack_from("<16sHHLQQQLHHHHHH", ab, oELF)
   names = Elf64_Shdr(ab, oELF + e_shoff, e_shstrndx)
   oNames = oELF + names.sh_offset
-  
+
   nPARKING, nXURT = b".PARKING\0", b".XURT\0"
   sPARKING, sXURT = None,None
 
@@ -58,7 +57,7 @@ def process(fn):
   base,ext = os.path.splitext(fn)
   if not os.path.isdir(base): os.mkdir(base)
   with open(os.path.join(base, "topELF.bin"), "wb") as fo: fo.write(ab[oELF:])
-  
+
   if sPARKING: 
     print(". Parking: 0x%X+%X" % (oELF+sPARKING.sh_offset, sPARKING.sh_size))
     with open(os.path.join(base, "Parking.bin"), "wb") as fo: fo.write(ab[oELF+sPARKING.sh_offset:oELF+sPARKING.sh_offset+sPARKING.sh_size])
