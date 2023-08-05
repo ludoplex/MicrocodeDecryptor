@@ -95,64 +95,64 @@ def process(fn):
 
   buf = abX + nonce + abX
   mh = my_SHA256()
-  k = b"".join(mh.transform(buf) for i in range(8))
+  k = b"".join(mh.transform(buf) for _ in range(8))
   rc4 = ARC4.new(k)
   rc4.encrypt(b'\x00'*0x200) # Skip 0x200 bytes
   dec = rc4.encrypt(enc)
-  with open(fn + ".dec", "wb") as fo: fo.write(dec)
-  
+  with open(f"{fn}.dec", "wb") as fo: fo.write(dec)
+
   h = hashlib.sha256(hdr + nonce + dec).digest()
-  hash_match = h == signed_hash 
+  hash_match = h == signed_hash
   if hash_match:
     print("Patch hash matched: enc size: 0x%04x" % enc_size)
   else:
     print("Patch hash not matched!: enc size: 0x%04x\n hash: %s\n signed_hash: %s" % \
         (enc_size, h.hex(), signed_hash.hex()))
-      
+
   print("Patch data entropy: %f" % calcEntropy(dec))
-   
+
   if not hash_match: 
     print("XuCode is not found in patch (hash mismatch)!")
     return
-  
-  xu_dec_cmd_offset = -1
-  for dec_off in range(len(dec) - 4, 0, -1):
-    if dec[dec_off: dec_off+4] == b"\xfe\xff\xff\xff":
-        xu_dec_cmd_offset = dec_off - 0x35
-        break
+
+  xu_dec_cmd_offset = next(
+      (dec_off - 0x35 for dec_off in range(len(dec) - 4, 0, -1)
+       if dec[dec_off:dec_off + 4] == b"\xfe\xff\xff\xff"),
+      -1,
+  )
   if xu_dec_cmd_offset < 0:
     print("XuCode is not found in patch (decode command is not found)!: xu_dec_cmd_offset: 0x%x" \
         % xu_dec_cmd_offset)
     return
-  
+
   xu_dec_cmd_id, xu_offset, xu_size, xu_hash = struct.unpack_from("<BLL32s", dec, xu_dec_cmd_offset)
   if xu_dec_cmd_id != 0x14:
     print("XuCode is not found in patch (invalid decode command id)!: xu_dec_cmd_offset: 0x%04x: cmd id: 0x%02x" \
         % (xu_dec_cmd_offset, xu_dec_cmd_id))
     return
-  
+
   patch_size = patch_size_dw * 4
   assert(xu_size >= 0x20 and xu_offset >= patch_size and xu_offset + xu_size  <= patch_size + len(patch_other))
-  
+
   xu_offset_other = xu_offset - patch_size
   xu_nonce = patch_other[xu_offset_other: 0x20]
   xu_data = patch_other[xu_offset_other + 0x20: xu_offset_other + xu_size]
-  
+
   xu_mh = my_SHA256()
   xu_buf = abX + xu_nonce + abX
-  xu_k = b"".join(xu_mh.transform(xu_buf) for i in range(8))
+  xu_k = b"".join(xu_mh.transform(xu_buf) for _ in range(8))
   xu_rc4 = ARC4.new(xu_k)
   xu_rc4.encrypt(b'\x00'*0x200)
   xu_dec = xu_rc4.encrypt(xu_data)
-  with open(fn + ".xu.dec", "wb") as fo: fo.write(xu_dec)
-  
+  with open(f"{fn}.xu.dec", "wb") as fo: fo.write(xu_dec)
+
   xu_h = hashlib.sha256(xu_nonce + xu_dec).digest()
   if xu_h == xu_hash:
     print("XuCode hash matched: size: 0x%04x" % xu_size)
   else:
     print("XuCode hash not matched!: size: 0x%04x\n hash: %s\n signed_hash: %s" % \
       (xu_size, xu_h.hex(), xu_hash.hex()))
-  
+
   print("XuCode data entropy: %f" % calcEntropy(xu_dec))
 
 def main(argv):

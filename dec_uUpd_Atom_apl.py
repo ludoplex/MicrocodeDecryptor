@@ -92,11 +92,11 @@ def process(fn):
 
   buf = abX + nonce + abX
   mh = my_SHA256()
-  k = b"".join(mh.transform(buf) for i in range(8))
+  k = b"".join(mh.transform(buf) for _ in range(8))
   rc4 = ARC4.new(k)
   rc4.encrypt(b'\x00'*0x200) # Skip 0x200 bytes
   dec = rc4.encrypt(enc)
-  with open(fn + ".dec", "wb") as fo: fo.write(dec)
+  with open(f"{fn}.dec", "wb") as fo: fo.write(dec)
   for cc in range(0, len(dec), 64):
     h = hashlib.sha256(hdr + nonce + dec[:cc]).digest()
     if h == signed_hash:
